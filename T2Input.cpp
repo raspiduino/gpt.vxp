@@ -3,8 +3,8 @@
 #include "Console.h"
 #include "Console_io.h"
 
-extern Telnet telnet;
 extern Console console;
+extern ChatGPT chatgpt;
 
 static int abs(int a){
 	return a<0?-a:a;
@@ -55,7 +55,7 @@ const name_and_code ctrl_keyboard[10][10] =
 
 const char * num_keyboard[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
 const char * Fnum_keyboard[12] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"};
-const char * set_keyboard[12] = {"F%", "CTRL", "", "TAB", "", "", "", "", "", "Back", "", ""};
+const char * set_keyboard[12] = {"F%", "CTRL", "", "TAB", "Send", "Log", "", "", "", "Back", "", ""};
 
 const char * Fnum_codes[12] = {"\033[1P", "\033[1Q", "\033[1R", "\033[1S", "\033[15~", 
 	"\033[17~", "\033[18~", "\033[19~", "\033[20~", "\033[21~", "\033[23~", "\033[24~"};
@@ -277,6 +277,14 @@ void T2Input::numpad_input(int keycode){ //TODO: remake this
 				case 3:
 					console_str_out("\t");
 					state=MAIN;
+					break;
+				case 5:
+					chatgpt.submit();
+					state = MAIN;
+					break;
+				case 6:
+					chatgpt.toggle_log();
+					state = MAIN;
 					break;
 			}
 			break;
@@ -625,15 +633,6 @@ void T2Input::draw(){
 	}
 }
 
-// Free the input_mode 1 buffer
-void T2Input::free_buffer(){
-	for(int i = 0; i < BUF_SIZE; i++){
-		str_buf[i] = '\0';
-	}
-
-	input_done = 0;
-}
-
 void T2Input::init(){
 	key_w = scr_w/3;
 	//key_h = key_w/3*2;
@@ -657,10 +656,6 @@ void T2Input::init(){
 	squares[5][0] = key_w*2 - key_w/4, squares[5][1] = keyboard_h + key_h/4;
 	squares[6][0] = key_w*2 - key_w/4, squares[6][1] = keyboard_h + key_h - key_h/4;
 	squares[7][0] = key_w + key_w/4, squares[7][1] = keyboard_h + key_h - key_h/4;
-
-	input_mode = 0;
-
-	free_buffer();
 }
 
 T2Input::~T2Input(void)

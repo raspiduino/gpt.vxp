@@ -1,12 +1,9 @@
 #include "Console.h"
 #include "vmmm.h"
-#include "Telnet.h"
 #include "ProFont6x11.h"
 #include "Console_io.h"
 
 const char* Hex_ch = "0123456789ABCDF"; 
-
-extern Telnet telnet;
 
 const unsigned short maincolors[8] = 
 {

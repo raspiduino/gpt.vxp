@@ -7,8 +7,6 @@
 #include "ResID.h"
 #include "string.h"
 
-#define BUF_SIZE 253 // Buffer size for output mode 1, set to 253 if you want to connect to longest domain name :)
-
 extern int scr_w, scr_h;
 extern VMUINT8 *layer_bufs[2];
 extern VMINT layer_hdls[2];

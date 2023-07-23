@@ -1,7 +1,7 @@
 #pragma once
 #include "main.h"
 #include "Console.h"
-#include "Telnet.h"
+#include "chatgpt.h"
 #include "T2Input.h"
 
 extern "C" void console_char_in(char ch);

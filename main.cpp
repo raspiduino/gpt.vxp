@@ -1,7 +1,7 @@
 #include "main.h"
 #include "Console.h"
 #include "Console_io.h"
-#include "Telnet.h"
+#include "chatgpt.h"
 #include "T2Input.h"
 #include "vmtimer.h"
 
@@ -11,18 +11,10 @@ VMUINT8 *layer_bufs[2] = {0,0};
 VMINT layer_hdls[2] = {-1,-1};
 
 Console console;
-Telnet telnet;
+ChatGPT chatgpt;
 T2Input t2input;
 
 int main_timer_id = -1;
-
-int prompt_timer_id = -1; // Timer for prompt
-int timeout_timer_id = -1; // Timer for waiting telnet to connect
-int timeout = 0; // Timeout counter
-
-// Telnet host and port
-char ip[BUF_SIZE];
-int port = -3;
 
 #ifndef WIN32
 extern "C" void* malloc(int size){
@@ -55,7 +47,7 @@ void vm_main(void){
 	scr_h = vm_graphic_get_screen_height();
 
 	console.init();
-	telnet.init();
+	chatgpt.init();
 	t2input.init();
 
 	vm_reg_sysevt_callback(handle_sysevt);
@@ -72,64 +64,7 @@ void draw(){
 } 
 
 void timer(int tid){
-	telnet.update();
 	draw();
-}
-
-void timeout_f(int tid){
-	if (telnet.is_connected == 1) {
-		// Connected
-		t2input.input_mode = 0; // Change the input mode to telnet
-		vm_delete_timer(timeout_timer_id); // Delete the timeout counter
-	} else {
-		timeout++; // Increase the timeout counter
-
-		if(timeout > 25) {
-			// After 25 seconds (you can change this duration) -> timeout and exit
-			console_str_in("\nTimed out, exiting...");
-			vm_exit_app(); // Exit
-		}
-	}
-}
-
-/*
- * We use port as the status flag before input it actual value
- * If port == -3 -> prompt for host input, then set port = -2
- * If port == -2 -> Check if the input has been done and if yes,
- * save the ip and prompt for port input, then set port = -1
- * If port == -1 -> Check if the input has been done, if yes set
- * the actual port value.
- */
-
-void prompt(int tid) {
-	if (port == -3) {
-		// Prompt for host input
-		console_str_in("Please enter the host name/ip: ");
-		port = -2;
-	} else if (port == -2 && t2input.input_done == 1){
-		strcpy(ip, t2input.str_buf); // Save the ip
-
-		console_str_in("\nPlease enter the port: ");
-		
-		// Free the buffer
-		t2input.free_buffer();
-		port = -1;
-	} else if (port == -1 && t2input.input_done == 1){
-		port = strtoi(t2input.str_buf); // Convert port to number
-		
-		if (port < 0) {
-			// Invaild port or number
-			console_str_in("\nInvaild port! Please enter the port: ");
-		
-			// Free the buffer
-			t2input.free_buffer();
-		} else {
-			telnet.connect_to(ip, port); // Try connecting to host
-
-			timeout_timer_id = vm_create_timer(1000, timeout_f);
-			vm_delete_timer(prompt_timer_id); // Remove the prompt
-		}
-	}
 }
 
 void handle_sysevt(VMINT message, VMINT param) {
@@ -153,13 +88,9 @@ void handle_sysevt(VMINT message, VMINT param) {
 		t2input.layer_handle=layer_hdls[1];
 
 		if(message == VM_MSG_CREATE){ //only when app start
-			// Prompt for host & port to connect
-			t2input.input_mode = 1; // Get input from keyboard to buffer
-
-			console_str_in("Welcome to TelnetVXP!\n");
-			console_str_in("Written by Ximik_Boda & TelnetVXP contributors\n");
-
-			prompt_timer_id = vm_create_timer(1000, prompt); // Check the prompt for every 1 second
+			console_str_in("ChatGPT client for Nokia\n");
+			console_str_in("By gvl610 & Ximik_Boda\n");
+			console_str_in("User: ");
 		}
 		if(main_timer_id==-1)
 			main_timer_id = vm_create_timer(1000/15, timer); //15 fps

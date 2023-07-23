@@ -1,6 +1,5 @@
 #pragma once
 #include "main.h"
-#include "Telnet.h"
 
 class T2Input
 {
@@ -39,10 +38,6 @@ public:
 	int current_key;
 
 	int squares[8][2];
-
-	int input_mode; // 0 -> output to telnet socket, 1 -> output to buffer
-	int input_done;
-	char str_buf[BUF_SIZE];  // temp buf for storing input if input_mode is 1
 
 	int get_keycode(int x, int y);
 
