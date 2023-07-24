@@ -3,7 +3,7 @@
 #include "main.h"
 
 // Chat buffer size
-#define CHAT_BUFFER_SIZE 32768
+#define CHAT_BUFFER_SIZE 131072
 
 class ChatGPT
 {

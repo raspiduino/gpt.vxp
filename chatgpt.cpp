@@ -157,8 +157,8 @@ void ChatGPT::receive() {
 		console_str_in("Received result\n");
 	}
 
-	char* data = (char*)vm_calloc(10240);
-	if (vm_tcp_read(tcp_hdl, data, 10240) > 0) {
+	char* data = (char*)vm_calloc(20480);
+	if (vm_tcp_read(tcp_hdl, data, 20480) > 0) {
 		// We received something
 		// Split the response
 		char* s1 = strtokm(data, "\"content\":\"");
