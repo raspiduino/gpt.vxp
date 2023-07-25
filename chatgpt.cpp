@@ -30,13 +30,19 @@ void ChatGPT::init() {
 	promptbuf = (char*)vm_calloc(1024);
 
 	// Init payload
-	sprintf(chatbuf, "{\"model\":\"gpt-3.5-turbo\",\"temperature\":1,\"presence_penalty\":0,\"top_p\":1,\"frequency_penalty\":0,\"messages\":[{\"role\":\"system\",\"content\":\"You are ChatGPT, a large language model trained by OpenAI.\\nCarefully heed the user\'s instructions. \\nRespond using Markdown.\"}]}");
+	sprintf(chatbuf, "{\"model\":\"gpt-3.5-turbo\",\"temperature\":1,\"presence_penalty\":0,\"top_p\":1,\"frequency_penalty\":0,\"messages\":[{\"role\":\"system\",\"content\":\"You are ChatGPT, a large language model trained by OpenAI.\\nCarefully heed the user\'s instructions. \\nRespond using Markdown. Due to endpoint device limitation, your response must be broken down to 410 characters parts, or the rest of your response won't be displayed.\"}]}");
 
 	// TCP handle
 	tcp_hdl = -1;
 
 	// Disable log by default
 	enable_log = false;
+
+	// Current prompt
+	current_prompt = 0;
+
+	// Number of prompts
+	n_prompt = 0;
 }
 
 void ChatGPT::add(char c) {
@@ -45,6 +51,12 @@ void ChatGPT::add(char c) {
 	// TODO: Add character escape here before adding to buffer
 	promptbuf[s] = c;
 	console_char_in(c);
+}
+
+void ChatGPT::add_string(const char* s) {
+	for (int i = 0; i < strlen(s); i++) {
+		add(s[i]);
+	}
 }
 
 void ChatGPT::del() {
@@ -58,6 +70,7 @@ void ChatGPT::submit() {
 	chat(promptbuf);
 	vm_free(promptbuf);
 	promptbuf = (char*)vm_calloc(1024);
+	current_prompt = ++n_prompt;
 }
 
 void ChatGPT::toggle_log() {
@@ -157,6 +170,8 @@ void ChatGPT::receive() {
 		console_str_in("Received result\n");
 	}
 
+	console_str_in("Bot: ");
+
 	char* data = (char*)vm_calloc(20480);
 	if (vm_tcp_read(tcp_hdl, data, 20480) > 0) {
 		// We received something
@@ -165,12 +180,61 @@ void ChatGPT::receive() {
 		s1 = strtokm(NULL, "\"content\":\"");
 		char* msg = strtokm(s1, "\"},\"finish_reason\"");
 		
-		console_str_in("Bot: ");
 		console_str_in(msg);
-		console_str_in("\nUser: ");
 
 		// Add bot response to JSON string
 		sprintf(chatbuf + (strlen(chatbuf) - 2), ",{\"role\":\"assistant\",\"content\":\"%s\"}]}", msg);
-		vm_tcp_close(tcp_hdl);
 	}
+
+	// Remember to free
+	vm_free(data);
+	
+	console_str_in("\nUser: ");
+	vm_tcp_close(tcp_hdl);
+}
+
+void ChatGPT::show_prompt() {
+	// Clear current line and move cursor to the beginning
+	console_str_in("\x1b[2K\x1b[G");
+
+	// Copy the chatbuf
+	char* b = (char*)vm_calloc(strlen(chatbuf) + 1);
+	sprintf(b, "%s", chatbuf);
+
+	// Get the pointed prompt
+	char* s1 = strtokm(b, "\"role\":\"user\",\"content\":\"");
+
+	// Free the copied chatbuf
+	vm_free(b);
+
+	for (int i = 0; i < current_prompt + 1; i++) {
+		s1 = strtokm(NULL, "\"role\":\"user\",\"content\":\"");
+	}
+
+	char* s2 = strtokm(s1, "\"},{\"role\":\"assistant\"");
+	
+	// Show that prompt to the console
+	console_str_in("User: ");
+	console_str_in(s2);
+
+	// Clear the promptbuf
+	vm_free(promptbuf);
+	promptbuf = (char*)vm_calloc(1024);
+
+	// Fill new content
+	sprintf(promptbuf, "%s", s2);
+}
+
+void ChatGPT::prev() {
+	if (current_prompt <= 0) return;
+	current_prompt--;
+
+	show_prompt();
+}
+
+void ChatGPT::next() {
+	if (current_prompt >= n_prompt) return;
+	current_prompt++;
+
+	show_prompt();
 }

@@ -20,6 +20,12 @@ public:
 	// Enable log or not
 	bool enable_log;
 
+	// Current prompt id
+	int current_prompt;
+
+	// Number of prompts
+	int n_prompt;
+
 	// Init
 	void init();
 
@@ -46,4 +52,16 @@ public:
 
 	// Toggle log button
 	void toggle_log();
+
+	// Add string
+	void add_string(const char *s);
+
+	// Get previous prompt
+	void prev();
+
+	// Get next prompt
+	void next();
+
+	// Show prompt
+	void show_prompt();
 };
