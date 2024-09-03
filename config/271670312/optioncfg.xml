@@ -4,7 +4,7 @@
   <advanceoption>
     <adscpu>ARM7EJ-S</adscpu>
     <adscompiler>-O2 -g -apcs /ropi/rwpi -cpu ARM7EJ-S</adscompiler>
-    <adstcccompiler>-O2 -g -apcs /ropi/rwpi/interwork -cpu ARM7EJ-S</adstcccompiler>
+    <adstcccompiler>-O2 -g -DBR_USE_UNIX_TIME -apcs /ropi/rwpi/interwork -cpu ARM7EJ-S</adstcccompiler>
     <adslinker>-info totals -rwpi -ropi</adslinker>
     <rvctcpu>ARM7EJ-S</rvctcpu>
     <rvctcompiler>-O2 -g --split_sections --apcs=/fpic -cpu ARM7EJ-S -D__MRE_COMPILER_RVCT__</rvctcompiler>
@@ -12,10 +12,10 @@
     <rvctlinker>--fpic --sysv --entry rvct_entry --first rvct_entry</rvctlinker>
     <gcccpu>
     </gcccpu>
-    <gcccompiler>-c -fpic -g -mcpu=arm7tdmi-s -fvisibility=hidden -mthumb -mlittle-endian -O2 -D__MRE_COMPILER_GCC__ -fno-exceptions -fno-non-call-exceptions</gcccompiler>
-    <gcctcccompiler>-c -g -fpic -mcpu=arm7tdmi-s -fvisibility=hidden -mthumb -mlittle-endian -O2 -D__MRE_COMPILER_GCC__ -fno-exceptions -fno-non-call-exceptions</gcctcccompiler>
+    <gcccompiler>-c -Os -fpic -mcpu=arm7tdmi-s -fvisibility=hidden -mthumb -mlittle-endian -O2 -D__MRE_COMPILER_GCC__ -fno-exceptions -fno-non-call-exceptions</gcccompiler>
+    <gcctcccompiler>-c -Os -fpic -mcpu=arm7tdmi-s -fvisibility=hidden -mthumb -mlittle-endian -O2 -D__MRE_COMPILER_GCC__ -fno-exceptions -fno-non-call-exceptions</gcctcccompiler>
     <gcclinker>-fpic -msvr4-struct-return -pie </gcclinker>
-    <select>0</select>
+    <select>2</select>
     <OutputPath>ARM</OutputPath>
     <thumbenbale>TRUE</thumbenbale>
     <option>

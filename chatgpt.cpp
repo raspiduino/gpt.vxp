@@ -1,240 +1,159 @@
 #include "Console.h"
 #include "chatgpt.h"
-#include "vmsock.h"
 #include "Console_io.h"
+#include "thread.h"
+#include "CircleBuf.h"
+#include "cJSON.h"
+
 
 // Free ChatGPT endpoint. You can use any endpoint you want
-const char* host = "free.churchless.tech";
-
-// Port to connect. We don't have HTTPS support is complicated, so we use HTTP instead.
-// In the future you might want to implement HTTPS
-const VMINT port = 80;
+const char* host = "inference.memgpt.ai";
 
 // API path
-const char* path = "/v1/chat/completions";
+const char* path = "/chat/completions";
 
 // API key
 // Join this endpoint's author's discord at https://discord.gg/CH8DBabS
 const char* key = "MyDiscord";
 
-extern ChatGPT chatgpt;
-char* pl;
 
-static void _tcp_callback(VMINT handle, VMINT event) {
-	chatgpt.tcp_callback(handle, event);
-}
+extern CircleBuf circlebuf;
 
-void ChatGPT::init() {
-	// Allocate buffers
-	chatbuf = (char*)vm_calloc(CHAT_BUFFER_SIZE);
-	promptbuf = (char*)vm_calloc(1024);
+void https_request(const char* host, const char* path, const char* body, char* rbody, int &rbody_size);
 
-	// Init payload
-	sprintf(chatbuf, "{\"model\":\"gpt-3.5-turbo\",\"temperature\":1,\"presence_penalty\":0,\"top_p\":1,\"frequency_penalty\":0,\"messages\":[{\"role\":\"system\",\"content\":\"You are ChatGPT, a large language model trained by OpenAI.\\nCarefully heed the user\'s instructions. \\nRespond using Markdown. Due to endpoint device limitation, your response must be broken down to 410 characters parts, or the rest of your response won't be displayed.\"}]}");
+const char* messages_template[2][2] = 
+{
+	{"system", "You are a helpful assistant."},
+	{"user", "{promt}"}
+};
 
-	// TCP handle
-	tcp_hdl = -1;
+#define JSON_PUT(j, n, s) if (cJSON_AddStringToObject((j), (n), (s)) == NULL) goto error;
 
-	// Disable log by default
-	enable_log = false;
+struct json_and_promt{
+	json_and_promt(cJSON* b, cJSON* p){ base = b, promt = p; }
+	cJSON* base;
+	cJSON* promt;
+};
 
-	// Current prompt
-	current_prompt = 0;
+json_and_promt generate_base_request_gpt_json(){
+	cJSON* base = cJSON_CreateObject();
+	if(base == NULL) goto error;
 
-	// Number of prompts
-	n_prompt = 0;
-}
+	JSON_PUT(base, "model", "memgpt-openai");
+	JSON_PUT(base, "user", "00000000-0000-0000-0000-18937ffe6b0f");
+	
+	{
+		cJSON* promt = 0;
+		cJSON* messages = cJSON_AddArrayToObject(base, "messages");
+		if (messages == NULL) goto error;
 
-void ChatGPT::add(char c) {
-	int s = strlen(promptbuf);
+		for (int i = 0; i < 2; ++i) {
+			cJSON* message = cJSON_CreateObject();
 
-	// TODO: Add character escape here before adding to buffer
-	promptbuf[s] = c;
-	console_char_in(c);
-}
+			JSON_PUT(message, "role", messages_template[i][0]);
+			if ((promt = cJSON_AddStringToObject(message, "content", messages_template[i][1])) == NULL) goto error;
 
-void ChatGPT::add_string(const char* s) {
-	for (int i = 0; i < strlen(s); i++) {
-		add(s[i]);
-	}
-}
-
-void ChatGPT::del() {
-	if (strlen(promptbuf) == 0) return;
-	promptbuf[strlen(promptbuf) - 1] = '\0';
-	console_char_in('\b\b'); // Sending \b\b for deleting character on the screen
-}
-
-void ChatGPT::submit() {
-	console_str_in("\n");
-	chat(promptbuf);
-	vm_free(promptbuf);
-	promptbuf = (char*)vm_calloc(1024);
-	current_prompt = ++n_prompt;
-}
-
-void ChatGPT::toggle_log() {
-	enable_log = !enable_log;
-}
-
-void ChatGPT::chat(const char* msg) {
-	// Add message to payload buffer
-	// We overwrite the last 2 character in the chatbuf, which is ]}, to continue writting to the message array.
-	sprintf(chatbuf + (strlen(chatbuf) - 2), ",{\"role\":\"user\",\"content\":\"%s\"}]}", msg);
-
-	// Create full HTTP header payload
-	pl = (char*)vm_calloc(strlen(chatbuf) + 256);
-	sprintf(pl, "POST /v1/chat/completions HTTP/1.1\r\nHost: %s\r\nAccept: */*\r\nAuthorization: Bearer %s\r\nUser-Agent: Nokia\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s", host, key, strlen(chatbuf), chatbuf);
-
-	// Establish TCP connection to endpoint
-	tcp_hdl = vm_tcp_connect(host, port, 1, _tcp_callback);
-	if (enable_log) {
-		char tmp[50];
-		sprintf(tmp, "tcp_hdl=%d\n", tcp_hdl);
-		console_str_in(tmp);
-	}
-}
-
-void ChatGPT::tcp_callback(VMINT handle, VMINT event) {
-	if (handle != tcp_hdl)
-		return;
-
-	switch (event) {
-	case VM_TCP_EVT_CONNECTED:
-		if (enable_log) console_str_in("TCP connected\n");
-		send_data(pl);
-		vm_free(pl);
-		break;
-	case VM_TCP_EVT_CAN_WRITE:
-		break;
-	case VM_TCP_EVT_CAN_READ:
-		receive();
-		break;
-	case VM_TCP_EVT_PIPE_BROKEN:
-	case VM_TCP_EVT_HOST_NOT_FOUND:
-	case VM_TCP_EVT_PIPE_CLOSED:
-		vm_tcp_close(tcp_hdl);
-		char tmp[50];
-		sprintf(tmp, "\n\033[mConnect is close (code %d)\n", event);
-		console_str_in(tmp);
-		break;
-	}
-}
-
-void ChatGPT::send_data(char* data) {
-	// Calculate the data length, if not yet
-	int len = strlen(data);
-	int ll = len; // Length left to send
-
-	// Send data until no data is left
-	while (ll > 0) {
-		int ss = vm_tcp_write(tcp_hdl, data + (len - ll), ll);
-		if (ss <= 0) {
-			// If ss <= 0 -> some error happened
-			char tmp[50];
-			sprintf(tmp, "\n\033[mError sending (code %d)\n", ss);
-			console_str_in(tmp);
-			return;
+			cJSON_AddItemToArray(messages, message);
 		}
 
-		ll -= ss;
+		return json_and_promt(base, promt);
+	}
+
+	error:
+	cprintf("Generate JSON failed\n");
+    cJSON_Delete(base);
+	return json_and_promt(0, 0);
+}
+
+char* get_gpt_answer(char* json){
+	static char gpt_answer[1024*10];
+	gpt_answer[0] = '\0';
+
+	cJSON* answer = cJSON_Parse(json);
+
+	if (answer == NULL){
+		const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL)
+        {
+            cprintf("JSON Error before: %s\n", error_ptr);
+        }
+	}else{
+		cJSON *choice = NULL;
+		cJSON* choices = cJSON_GetObjectItemCaseSensitive(answer, "choices");
+		cJSON_ArrayForEach(choice, choices)
+		{
+			cJSON* message = cJSON_GetObjectItemCaseSensitive(choice, "message");
+			if(cJSON_IsObject(message)){
+				cJSON* content = cJSON_GetObjectItemCaseSensitive(message, "content");
+				if (cJSON_IsString(content) && (content->valuestring != NULL))
+				{
+					strcpy(gpt_answer, content->valuestring);
+				}
+			}
+		}
+	}
+
+    cJSON_Delete(answer);
+
+	return gpt_answer;
+}
+
+char* get_promt(){
+	static char promtbuf[1024*4];
+	int promtbuf_size = 0;
+
+	while(1){
+		char c = circlebuf.pop_blok();
+
+		if(c == '\177'){
+			console_str_in("\b \b");
+			promtbuf_size--;
+		}else if(c == '\r' && circlebuf.view_blok() == '\n'){
+			circlebuf.pop(); // remove \n
+			promtbuf[promtbuf_size] = '\0';
+			return promtbuf;
+		}else{
+			promtbuf[promtbuf_size++] = c;
+			console_char_in(c);
+		}
 	}
 }
 
-char* strtokm(char* str, const char* delim)
-{
-	static char* tok;
-	static char* next;
-	char* m;
+char answer_buf[1024*10];
 
-	if (delim == NULL) return NULL;
-
-	tok = (str) ? str : next;
-	if (tok == NULL) return NULL;
-
-	m = strstr(tok, delim);
-
-	if (m) {
-		next = m + strlen(delim);
-		*m = '\0';
-	}
-	else {
-		next = NULL;
-	}
-
-	return tok;
-}
-
-void ChatGPT::receive() {
-	if (enable_log) {
-		console_str_in("Received result\n");
-	}
-
-	console_str_in("Bot: ");
-
-	char* data = (char*)vm_calloc(20480);
-	if (vm_tcp_read(tcp_hdl, data, 20480) > 0) {
-		// We received something
-		// Split the response
-		char* s1 = strtokm(data, "\"content\":\"");
-		s1 = strtokm(NULL, "\"content\":\"");
-		char* msg = strtokm(s1, "\"},\"finish_reason\"");
+void main_gpt(){
+	json_and_promt request = generate_base_request_gpt_json();
+	if(request.base == 0)
+		thread_end();
 		
-		console_str_in(msg);
+	cprintf("ChatGPT client for Nokia\n");
+	cprintf("By gvl610 & Ximik_Boda\n");
 
-		// Add bot response to JSON string
-		sprintf(chatbuf + (strlen(chatbuf) - 2), ",{\"role\":\"assistant\",\"content\":\"%s\"}]}", msg);
+	while(1){
+		cprintf("Client: ");
+
+		char *promt = get_promt();
+
+		cprintf("\n\n");
+		
+		cJSON_SetValuestring(request.promt, promt); //update promt in json
+		
+		char *body = cJSON_PrintUnformatted(request.base); //json to string
+
+		int res_size = 1024*10;
+		https_request(host, path, body, answer_buf, res_size); //http request
+		answer_buf[res_size] = '0';
+
+		char *gpt_answer = get_gpt_answer(answer_buf); //parse json
+
+		vm_free(body);
+
+		cprintf("ChatGPT: ");
+		console_str_in(gpt_answer);
+		cprintf("\n\n");
 	}
 
-	// Remember to free
-	vm_free(data);
-	
-	console_str_in("\nUser: ");
-	vm_tcp_close(tcp_hdl);
-}
+	cJSON_Delete(request.base);
 
-void ChatGPT::show_prompt() {
-	// Clear current line and move cursor to the beginning
-	console_str_in("\x1b[2K\x1b[G");
-
-	// Copy the chatbuf
-	char* b = (char*)vm_calloc(strlen(chatbuf) + 1);
-	sprintf(b, "%s", chatbuf);
-
-	// Get the pointed prompt
-	char* s1 = strtokm(b, "\"role\":\"user\",\"content\":\"");
-
-	// Free the copied chatbuf
-	vm_free(b);
-
-	for (int i = 0; i < current_prompt + 1; i++) {
-		s1 = strtokm(NULL, "\"role\":\"user\",\"content\":\"");
-	}
-
-	char* s2 = strtokm(s1, "\"},{\"role\":\"assistant\"");
-	
-	// Show that prompt to the console
-	console_str_in("User: ");
-	console_str_in(s2);
-
-	// Clear the promptbuf
-	vm_free(promptbuf);
-	promptbuf = (char*)vm_calloc(1024);
-
-	// Fill new content
-	sprintf(promptbuf, "%s", s2);
-}
-
-void ChatGPT::prev() {
-	if (current_prompt <= 0) return;
-	current_prompt--;
-
-	show_prompt();
-}
-
-void ChatGPT::next() {
-	if (current_prompt >= n_prompt) return;
-	current_prompt++;
-
-	show_prompt();
+	thread_end(); //return is forbiddenn
 }
