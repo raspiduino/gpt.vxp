@@ -4,7 +4,6 @@
 #include "Console_io.h"
 
 extern Console console;
-extern ChatGPT chatgpt;
 
 static int abs(int a){
 	return a<0?-a:a;
@@ -279,16 +278,12 @@ void T2Input::numpad_input(int keycode){ //TODO: remake this
 					state=MAIN;
 					break;
 				case 5:
-					chatgpt.submit();
 					state = MAIN;
 					break;
 				case 6:
-					chatgpt.toggle_log();
 					state = MAIN;
 					break;
 				case 7:
-					chatgpt.add_string("Continue response.");
-					chatgpt.submit();
 					state = MAIN;
 					break;
 			}
@@ -312,12 +307,10 @@ void T2Input::handle_keyevt(VMINT event, VMINT keycode){
 		case VM_KEY_EVENT_UP:
 			switch(keycode){
 				case VM_KEY_UP:
-					//send_c("\033[A");
-					chatgpt.prev();
+					send_c("\033[A");
 					break;
 				case VM_KEY_DOWN:
-					//send_c("\033[B");
-					chatgpt.next();
+					send_c("\033[B");
 					break;
 				case VM_KEY_RIGHT:
 					send_c("\033[C");

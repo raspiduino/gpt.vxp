@@ -1,39 +1,43 @@
 #include "Console_io.h"
+#include "CircleBuf.h"
 extern Console console;
-extern ChatGPT chatgpt;
 extern T2Input t2input;
+extern CircleBuf circlebuf;
 
-extern "C" void console_char_in(char ch){
+void console_char_in(char ch){
 	console.put_c(ch);
 }
 
-extern "C" void console_str_in(const char* str){
+void console_str_in(const char* str){
 	console.putstr(str);
 }
 
-extern "C" void console_str_with_length_in(const char* str, int length){
+void console_str_with_length_in(const char* str, int length){
 	console.putstr(str, length);
 }
 
-extern "C" void console_char_out(char ch){
-	if (ch == '\177') {
-		chatgpt.del();
-	} else {
-		chatgpt.add(ch);
-	}
+void console_char_out(char ch){
+	circlebuf.push(ch);
 }
 
-extern "C" void console_str_out(const char* str){
-	for(unsigned int i = 0; i < strlen(str); i++){
+void console_str_out(const char* str){
+	for(unsigned int i = 0; i < strlen(str); i++)
 		console_char_out(str[i]);
-	}
 }
 
-extern "C" void console_str_with_length_out(const char* str, int length){
-	if (str == "\r\n") {
-		chatgpt.submit();
-	}
-	else {
-		console_str_out(str);
-	}
+void console_str_with_length_out(const char* str, int length){
+	for(unsigned int i = 0; i < length; i++)
+		console_char_out(str[i]);
+}
+
+int cprintf(const char* format, ...) {
+	static char buf[1024 * 4];
+	va_list aptr;
+
+	va_start(aptr, format);
+	int ret = vsprintf(buf, format, aptr);
+	va_end(aptr);
+
+	console_str_in(buf);
+	return ret;
 }

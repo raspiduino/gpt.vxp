@@ -52,7 +52,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories=".\include;.\include\service;.\include\component;.\ResID;.\\.\src\app\widget;.\\.\src\app\launcher;.\\.\src\app\wallpaper;.\\.\src\app\screen_lock;.\\.\include\service;.\\.\include\component;.\\.\include\service;.\\.\src\framework;.\\.\src\framework\ui_core\base;.\\.\src\framework\ui_core\mvc;.\\.\src\framework\ui_core\pme;.\\.\src\framework\mmi_core;.\\.\src\ui_engine\vrt\interface;.\\.\src\component;.\\.\src\ui_engine\framework\xml;.\"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;_CONSOLE;_MINIGUI_LIB_;_USE_MINIGUIENTRY;_NOUNIX_;_FOR_WNC;__MRE_SDK__"
+				PreprocessorDefinitions="LIBCO_MPROTECT;WIN32;_DEBUG;_WINDOWS;_USRDLL;_CONSOLE;_MINIGUI_LIB_;_USE_MINIGUIENTRY;_NOUNIX_;_FOR_WNC;__MRE_SDK__"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -223,11 +223,39 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 			>
 			<File
+				RelativePath=".\bearssl_impl.c"
+				>
+			</File>
+			<File
+				RelativePath=".\c_fix.c"
+				>
+			</File>
+			<File
+				RelativePath=".\chatgpt.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\CircleBuf.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cJSON.c"
+				>
+			</File>
+			<File
 				RelativePath=".\Console.cpp"
 				>
 			</File>
 			<File
 				RelativePath=".\Console_io.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\https.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\libco.cpp"
 				>
 			</File>
 			<File
@@ -239,11 +267,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\Telnet.cpp"
+				RelativePath="TelnetVXP.def"
 				>
 			</File>
 			<File
-				RelativePath="TelnetVXP.def"
+				RelativePath=".\thread.cpp"
 				>
 			</File>
 		</Filter>
@@ -252,11 +280,31 @@
 			Filter="h;hpp;hxx;hm;inl"
 			>
 			<File
+				RelativePath=".\certificates.h"
+				>
+			</File>
+			<File
+				RelativePath=".\chatgpt.h"
+				>
+			</File>
+			<File
+				RelativePath=".\CircleBuf.h"
+				>
+			</File>
+			<File
+				RelativePath=".\cJSON.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Console.h"
 				>
 			</File>
 			<File
 				RelativePath=".\Console_io.h"
+				>
+			</File>
+			<File
+				RelativePath=".\libco.h"
 				>
 			</File>
 			<File
@@ -273,6 +321,10 @@
 			</File>
 			<File
 				RelativePath=".\Telnet.h"
+				>
+			</File>
+			<File
+				RelativePath=".\thread.h"
 				>
 			</File>
 		</Filter>
